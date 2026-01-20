@@ -209,6 +209,15 @@
           </select>
         </div>
 
+
+        <div class="pill">
+          <label for="detail">Деталізація</label>
+          <select id="detail">
+            <option value="standard" selected>Стандарт</option>
+            <option value="detailed">Більше деталей</option>
+          </select>
+        </div>
+
         <div class="pill" title="Якщо увімкнено — генератор додасть правило ‘one object only’ та обмежить ‘зайві деталі’.">
           <label for="strictOne">Строго 1 обʼєкт</label>
           <input id="strictOne" type="checkbox" checked />
@@ -261,7 +270,7 @@
 
         <div class="status">
           <span class="dot" aria-hidden="true"></span>
-          <span>Режим: <span id="modeLabel" class="kpi">Універсальна</span> • Формат: <span id="formatLabel" class="kpi">Текст</span> • Обмеження: <span id="strictLabel" class="kpi">ON</span></span>
+          <span>Режим: <span id="modeLabel" class="kpi">Універсальна</span> • Формат: <span id="formatLabel" class="kpi">Текст</span> • Деталі: <span id="detailLabel" class="kpi">STD</span> • Обмеження: <span id="strictLabel" class="kpi">ON</span></span>
         </div>
       </div>
     </div>
@@ -271,7 +280,7 @@
 
   <script>
     // --- MASTER TEMPLATE (stable core) ---
-    const MASTER = (iconObject, extraRules, platformTail) => `
+    const MASTER = (iconObject, extraRules, detailTail, platformTail) => `
 Ultra-clean premium 3D icon in a consistent brand style.
 
 Main object:
@@ -296,6 +305,7 @@ Shape & Geometry:
 – minimalistic, bold silhouette
 – slightly inflated form
 – no thin details, no sharp corners
+${detailTail}
 
 Camera & Composition:
 – centered object
@@ -304,8 +314,8 @@ Camera & Composition:
 – perfectly symmetrical composition
 
 Background:
-– pure black background
-– subtle dark pink gradient vignette
+– SOLID single-color dark gray background (#1A1A1A)
+– perfectly uniform, NO gradient, NO vignette, NO texture, NO pattern
 – no environment, no floor, no reflections
 
 Rendering:
@@ -327,17 +337,32 @@ Restrictions:
 – no different colors
 – no metallic silver or gold
 – do not change material or lighting style
+– background must be perfectly solid (#1A1A1A), no gradients, no vignette, no texture
 ${extraRules}
 
 ${platformTail}
 `.trim();
-
     // Platform tails (optional)
     const PLATFORM_TAILS = {
       universal: "",
-      midjourney: "MidJourney hints:\\n– clean studio render, minimal 3D icon\\n– prefer consistent output across a series\\n(If you use MJ, add your usual --ar / --v / --style params manually.)",
-      reve: "REVE hints:\\n– hyper-realistic product render\\n– strict style consistency across icons\\n(Keep the prompt stable, change only the main object.)",
-      sdxl: "SDXL/Leonardo hints:\\n– product render, high quality, minimal icon\\n– consistency across a set; change only the object\\n(If available: lock seed / use same model & sampler)."
+      midjourney: "MidJourney hints:\n– clean studio render, minimal 3D icon\n– prefer consistent output across a series\n(If you use MJ, add your usual --ar / --v / --style params manually.)",
+      reve: "REVE hints:\n– hyper-realistic product render\n– strict style consistency across icons\n(Keep the prompt stable, change only the main object.)",
+      sdxl: "SDXL/Leonardo hints:\n– product render, high quality, minimal icon\n– consistency across a set; change only the object\n(If available: lock seed / use same model & sampler).",
+      nanobanana: "Nano Banana Pro hints:\n– maximize consistency across icons\n– keep solid background truly flat\n(If available: reuse same seed and model preset).",
+      seedream4k: "Seedream 4K hints:\n– premium 4K product render\n– keep style and lighting fixed across the set\n(If available: lock seed / reuse the same preset)."
+    };
+
+    // Detail tails
+    const DETAIL_TAILS = {
+      standard: "",
+      detailed: `
+Detail emphasis (more readable geometry, still clean):
+– add medium-level recessed/extruded grooves for the main symbol (no micro-noise)
+– visible panel lines / window bands / ribs where relevant (simple repeating pattern)
+– thicker bevels + smooth rounded radii on outer edges (no razor edges)
+– slightly deeper ambient occlusion inside recesses for clear separation
+– keep details consistent, evenly spaced, and iconic (avoid random tiny dots)
+`.trim()
     };
 
     function linesToArray(block){
@@ -348,7 +373,7 @@ ${platformTail}
         .map(s => s.replace(/^[-–]\s*/, "")); // remove leading dash/bullet
     }
 
-    function buildJSONPrompt({ iconObject, strictRules, platformKey, platformTail, strictOne }){
+    function buildJSONPrompt({ iconObject, strictRules, detailKey, detailTail, platformKey, platformTail, strictOne }){
       const restrictionsBase = [
         "no text",
         "no extra symbols",
@@ -396,6 +421,9 @@ ${platformTail}
             "soft beveled edges"
           ]
         },
+        detailLevel: detailKey,
+        detailRules: detailKey === "detailed" ? linesToArray(detailTail).filter(Boolean) : [],
+
         styleAndMaterial: {
           baseMaterial: "glossy matte-black base",
           body: "deep dark graphite with subtle soft-touch finish",
@@ -424,9 +452,10 @@ ${platformTail}
           symmetry: "perfectly symmetrical composition"
         },
         background: {
-          color: "pure black",
-          vignette: "subtle dark pink gradient vignette",
-          environment: "no environment, no floor, no reflections"
+          color: "solid dark gray #1A1A1A",
+          vignette: "none (solid background)",
+          environment: "no environment, no floor, no reflections",
+          rules: ["perfectly uniform", "no gradient", "no vignette", "no texture", "no pattern"]
         },
         rendering: [
           "ultra-high quality",
@@ -490,18 +519,24 @@ ${platformTail}
       const platformKey = platformEl.value;
       const platformTail = PLATFORM_TAILS[platformKey] || "";
 
+      const detailEl = document.getElementById("detail");
+      const detailKey = detailEl ? detailEl.value : "standard";
+      const detailTail = DETAIL_TAILS[detailKey] || "";
+
       const formatKey = (formatEl && formatEl.value) ? formatEl.value : "text";
 
       if(formatKey === "json"){
         outEl.value = buildJSONPrompt({
           iconObject,
           strictRules,
+          detailKey,
+          detailTail,
           platformKey,
           platformTail,
           strictOne: strictEl.checked
         });
       }else{
-        outEl.value = MASTER(iconObject, strictRules, platformTail);
+        outEl.value = MASTER(iconObject, strictRules, detailTail, platformTail);
       }
 
       // counts
@@ -525,6 +560,10 @@ ${platformTail}
       }
 
       document.getElementById("strictLabel").textContent = strictEl.checked ? "ON" : "OFF";
+      const detailLabel = document.getElementById("detailLabel");
+      if(detailLabel){
+        detailLabel.textContent = (detailKey === "detailed") ? "DETAIL" : "STD";
+      }
     }
 
     async function copyPrompt(){
@@ -557,6 +596,7 @@ ${platformTail}
 
     document.getElementById("input").addEventListener("input", build);
     document.getElementById("platform").addEventListener("change", build);
+    document.getElementById("detail").addEventListener("change", build);
     document.getElementById("format").addEventListener("change", build);
     document.getElementById("strictOne").addEventListener("change", build);
     document.getElementById("copyBtn").addEventListener("click", copyPrompt);
