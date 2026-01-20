@@ -1,0 +1,663 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Генератор промптів для 3D-іконок</title>
+  <style>
+    :root{
+      --bg:#07070a;
+      --panel:#0d0d13;
+      --panel2:#0b0b10;
+      --text:#e9e9f2;
+      --muted:#b9b9c7;
+      --stroke:rgba(255,255,255,.12);
+      --hot:#ff2ea6;
+      --hot2:#b300ff;
+      --ok:#48ff9a;
+      --warn:#ffcf5a;
+      --shadow: 0 10px 30px rgba(0,0,0,.5);
+      --radius: 18px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      --sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, "Apple Color Emoji","Segoe UI Emoji";
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:var(--sans);
+      color:var(--text);
+      background:
+        radial-gradient(1200px 600px at 20% 10%, rgba(255,46,166,.18), transparent 55%),
+        radial-gradient(900px 500px at 85% 20%, rgba(179,0,255,.14), transparent 60%),
+        radial-gradient(800px 500px at 50% 100%, rgba(255,46,166,.10), transparent 60%),
+        var(--bg);
+      min-height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:24px;
+    }
+    .wrap{ width:min(1200px, 100%); display:flex; flex-direction:column; gap:14px; }
+    .topbar{ display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between; }
+    .brand{ display:flex; gap:10px; align-items:center; }
+    .logo{
+      width:42px; height:42px; border-radius:14px;
+      background: linear-gradient(135deg, rgba(255,46,166,.9), rgba(179,0,255,.8));
+      box-shadow: var(--shadow);
+      position:relative;
+    }
+    .logo:after{
+      content:"";
+      position:absolute; inset:2px;
+      border-radius:12px;
+      background: linear-gradient(180deg, rgba(0,0,0,.55), rgba(0,0,0,.10));
+      border:1px solid rgba(255,255,255,.18);
+    }
+    h1{ font-size:16px; margin:0; letter-spacing:.2px; }
+    .sub{ color:var(--muted); font-size:12px; margin-top:2px; }
+    .controls{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .btn{
+      border:1px solid var(--stroke);
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+      color:var(--text);
+      padding:10px 12px;
+      border-radius:14px;
+      cursor:pointer;
+      box-shadow: 0 8px 18px rgba(0,0,0,.35);
+      transition:.15s transform ease, .15s border-color ease;
+      font-weight:600;
+      font-size:13px;
+      user-select:none;
+    }
+    .btn:hover{ transform: translateY(-1px); border-color: rgba(255,46,166,.45); }
+    .btn.primary{
+      border-color: rgba(255,46,166,.55);
+      background: linear-gradient(135deg, rgba(255,46,166,.35), rgba(179,0,255,.22));
+    }
+    .btn.ghost{ background: transparent; box-shadow:none; }
+    .pill{
+      display:flex; align-items:center; gap:10px;
+      padding:10px 12px;
+      border-radius:14px;
+      border:1px solid var(--stroke);
+      background: rgba(255,255,255,.03);
+    }
+    .pill label{ color:var(--muted); font-size:12px; }
+    select, input[type="checkbox"]{ accent-color: var(--hot); }
+    select{
+      background: rgba(0,0,0,.25);
+      border:1px solid rgba(255,255,255,.14);
+      color:var(--text);
+      padding:8px 10px;
+      border-radius:12px;
+      outline:none;
+      font-weight:600;
+      font-size:13px;
+    }
+    .grid{ display:grid; grid-template-columns: 1fr 1fr; gap:14px; }
+    @media (max-width: 980px){ .grid{ grid-template-columns: 1fr; } }
+    .card{
+      border:1px solid var(--stroke);
+      background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .cardHead{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding:12px 14px;
+      background: linear-gradient(90deg, rgba(255,46,166,.18), rgba(179,0,255,.10), rgba(0,0,0,0));
+      border-bottom:1px solid rgba(255,255,255,.10);
+    }
+    .cardHead .title{ font-weight:800; letter-spacing:.2px; font-size:13px; }
+    .hint{ color:var(--muted); font-size:12px; line-height:1.35; padding:10px 14px 0 14px; }
+    textarea{
+      width:100%;
+      min-height: 360px;
+      resize:vertical;
+      background: radial-gradient(600px 280px at 20% 0%, rgba(255,46,166,.08), transparent 55%),
+                  radial-gradient(500px 260px at 90% 0%, rgba(179,0,255,.06), transparent 60%),
+                  rgba(0,0,0,.25);
+      border:0;
+      outline:none;
+      color:var(--text);
+      padding:14px;
+      font-family: var(--mono);
+      font-size:13px;
+      line-height:1.45;
+    }
+    textarea::placeholder{ color: rgba(185,185,199,.65); }
+    .presets{ display:flex; flex-wrap:wrap; gap:8px; padding:12px 14px 14px 14px; }
+    .chip{
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(0,0,0,.18);
+      color:var(--text);
+      padding:8px 10px;
+      border-radius:999px;
+      cursor:pointer;
+      font-size:12px;
+      font-weight:700;
+      transition:.15s transform ease, .15s border-color ease;
+      user-select:none;
+    }
+    .chip:hover{ transform: translateY(-1px); border-color: rgba(255,46,166,.55); }
+    .status{
+      display:flex; gap:10px; align-items:center;
+      padding:10px 14px 14px 14px;
+      color:var(--muted);
+      font-size:12px;
+      border-top:1px solid rgba(255,255,255,.08);
+      background: rgba(0,0,0,.16);
+    }
+    .dot{
+      width:10px; height:10px; border-radius:50%;
+      background: rgba(255,46,166,.8);
+      box-shadow: 0 0 14px rgba(255,46,166,.5);
+    }
+    .toast{
+      position: fixed;
+      bottom: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding:10px 12px;
+      border-radius: 14px;
+      background: rgba(0,0,0,.75);
+      border:1px solid rgba(255,255,255,.18);
+      color: var(--text);
+      font-size: 13px;
+      box-shadow: var(--shadow);
+      opacity:0;
+      pointer-events:none;
+      transition: .2s ease opacity, .2s ease transform;
+    }
+    .toast.show{ opacity:1; transform: translateX(-50%) translateY(-2px); }
+    .kpi{ color: var(--ok); font-weight:800; }
+    .warn{ color: var(--warn); font-weight:800; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
+        <div>
+          <h1>3D Icon Prompt Generator</h1>
+          <div class="sub">Один стиль. Одне світло. Змінюється лише зміст. Решта — табу.</div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <div class="pill">
+          <label for="format">Формат</label>
+          <select id="format">
+            <option value="text" selected>Текст</option>
+            <option value="json">JSON</option>
+          </select>
+        </div>
+
+        <div class="pill">
+          <label for="platform">Платформа</label>
+          <select id="platform">
+            <option value="universal" selected>Універсальна</option>
+            <option value="midjourney">MidJourney</option>
+            <option value="reve">REVE</option>
+            <option value="sdxl">SDXL / Leonardo</option>
+            <option value="nanobanana">Nano Banana Pro</option>
+            <option value="seedream4k">Seedream 4K</option>
+          </select>
+        </div>
+
+
+        <div class="pill">
+          <label for="detail">Деталізація</label>
+          <select id="detail">
+            <option value="standard" selected>Стандарт</option>
+            <option value="detailed">Більше деталей</option>
+          </select>
+        </div>
+
+        <div class="pill" title="Якщо увімкнено — генератор додасть правило ‘one object only’ та обмежить ‘зайві деталі’.">
+          <label for="strictOne">Строго 1 обʼєкт</label>
+          <input id="strictOne" type="checkbox" checked />
+        </div>
+
+        <button class="btn primary" id="copyBtn">Копіювати промпт</button>
+        <button class="btn ghost" id="clearBtn">Очистити</button>
+      </div>
+    </div>
+
+    <div class="grid">
+      <!-- INPUT -->
+      <div class="card">
+        <div class="cardHead">
+          <div class="title">ВІКНО 1 — Твій запит</div>
+          <div class="sub" id="inputCount">0 символів</div>
+        </div>
+        <div class="hint">
+          Пиши коротко: один обʼєкт (приклад: <span class="kpi">іконка годинника</span>, <span class="kpi">цифра 10</span>, <span class="kpi">знак питання</span>, <span class="kpi">барабан слота</span>).
+          Якщо почнеш писати роман — стиль виживе, але обʼєкт почне “творити”.
+        </div>
+        <textarea id="input" placeholder="ОБʼЄКТ ІКОНКИ: іконка годинника&#10;Додаткові нотатки: (за потреби) мінімально, жирний силует, без дрібних деталей"></textarea>
+
+        <div class="presets">
+          <!-- БАЗОВІ -->
+          <div class="chip" data-val="ОБʼЄКТ ІКОНКИ: іконка годинника">годинник</div>
+          <div class="chip" data-val="ОБʼЄКТ ІКОНКИ: знак питання">?</div>
+          <div class="chip" data-val="ОБʼЄКТ ІКОНКИ: знак оклику">!</div>
+          <div class="chip" data-val="ОБʼЄКТ ІКОНКИ: знак попередження (трикутник)">warning</div>
+
+          <!-- ЦИФРИ / ЧИСЛА -->
+          <div class="chip" data-val="ОБʼЄКТ ІКОНКИ: цифра 0">0</div>
+          <div class="chip" data-val="ОБʼЄКТ ІКОНКИ: цифра 1">1</div>
+          <div class="chip" data-val="ОБʼЄКТ ІКОНКИ: цифра 2">2</div>
+          <div class="chip" data-val="ОБʼЄКТ ІКОНКИ: цифра 3">3</div>
+          <div class="chip" data-val="ОБʼЄКТ ІКОНКИ: цифра 4">4</div>
+          <div class="chip" data-val="ОБʼЄКТ ІКОНКИ: цифра 5">5</div>
+          <div class="chip" data-val="ОБʼЄКТ ІКОНКИ: цифра 6">6</div>
+          <div class="chip" data-val="ОБʼЄКТ ІКОНКИ: цифра 7">7</div>
+          <div class="chip" data-val="ОБʼЄКТ ІКОНКИ: цифра 8">8</div>
+          <div class="chip" data-val="ОБʼЄКТ ІКОНКИ: цифра 9">9</div>
+          <div class="chip" data-val="ОБʼЄКТ ІКОНКИ: цифра 10">10</div>
+          <div class="chip" data-val="ОБʼЄКТ ІКОНКИ: число 100">100</div>
+          <div class="chip" data-val="ОБʼЄКТ ІКОНКИ: число 777 (джекпот)">777</div>
+
+          <!-- ГЕМБЛІНГ -->
+          <div class="chip" data-val="ОБʼЄКТ ІКОНКИ: фішка для покеру (одна)">фішка</div>
+          <div class="chip" data-val="ОБʼЄКТ ІКОНКИ: стопка покерних фішок">стопка</div>
+          <div class="chip" data-val="ОБʼЄКТ ІКОНКИ: дві гральні карти з фішкою (покер)">карти</div>
+          <div class="chip" data-val="ОБʼЄКТ ІКОНКИ: масть піка (♠)">♠</div>
+          <div class="chip" data-val="ОБʼЄКТ ІКОНКИ: масть чирва (♥)">♥</div>
+          <div class="chip" data-val="ОБʼЄКТ ІКОНКИ: масть бубна (♦)">♦</div>
+          <div class="chip" data-val="ОБʼЄКТ ІКОНКИ: масть трефа (♣)">♣</div>
+          <div class="chip" data-val="ОБʼЄКТ ІКОНКИ: кубики (пара дайсів)">дайси</div>
+          <div class="chip" data-val="ОБʼЄКТ ІКОНКИ: рулетка (колесо казино)">рулетка</div>
+          <div class="chip" data-val="ОБʼЄКТ ІКОНКИ: іконка барабана казино-слота">слот</div>
+          <div class="chip" data-val="ОБʼЄКТ ІКОНКИ: значок джекпоту (дзвінок / jackpot bell)">jackpot</div>
+
+          <!-- ФІНАНСИ / КРИПТО -->
+          <div class="chip" data-val="ОБʼЄКТ ІКОНКИ: символ долара на плитці">$</div>
+          <div class="chip" data-val="ОБʼЄКТ ІКОНКИ: символ євро на плитці">€</div>
+          <div class="chip" data-val="ОБʼЄКТ ІКОНКИ: знак відсотка (%)">%</div>
+          <div class="chip" data-val="ОБʼЄКТ ІКОНКИ: монета з написом BTC (Bitcoin)">BTC</div>
+          <div class="chip" data-val="ОБʼЄКТ ІКОНКИ: монета з написом ETH (Ethereum)">ETH</div>
+
+          <!-- ГРАФІКИ / СТАТИСТИКА -->
+          <div class="chip" data-val="ОБʼЄКТ ІКОНКИ: лінійний графік з ростом (стрілка вгору)">графік ↑</div>
+          <div class="chip" data-val="ОБʼЄКТ ІКОНКИ: лінійний графік з падінням (стрілка вниз)">графік ↓</div>
+          <div class="chip" data-val="ОБʼЄКТ ІКОНКИ: свічковий графік (candlestick chart)">свічки</div>
+          <div class="chip" data-val="ОБʼЄКТ ІКОНКИ: стовпчиковий графік (bar chart)">bar</div>
+
+          <!-- ДОПОМІЖНЕ -->
+          <div class="chip" data-val="ОБʼЄКТ ІКОНКИ: корона VIP (vip crown)">VIP</div>
+          <div class="chip" data-val="ОБʼЄКТ ІКОНКИ: трофей (win trophy)">трофей</div>
+        </div>
+
+        <div class="status">
+          <span class="dot" aria-hidden="true"></span>
+          <span>Порада: тримай обʼєкт у 3–8 словах. Усе інше вже “забетоновано” в стилі.</span>
+        </div>
+      </div>
+
+      <!-- OUTPUT -->
+      <div class="card">
+        <div class="cardHead">
+          <div class="title">ВІКНО 2 — Готовий промпт</div>
+          <div class="sub" id="outputCount">0 символів</div>
+        </div>
+        <div class="hint">
+          Справа завжди підсумковий промпт. Натисни <span class="kpi">Копіювати промпт</span> — вставляй у генератор.
+          Якщо платформа додає свої параметри — вибери її зверху. Формат (Текст/JSON) — поруч.
+        </div>
+        <textarea id="output" readonly></textarea>
+
+        <div class="status">
+          <span class="dot" aria-hidden="true"></span>
+          <span>Режим: <span id="modeLabel" class="kpi">Універсальна</span> • Формат: <span id="formatLabel" class="kpi">Текст</span> • Деталі: <span id="detailLabel" class="kpi">STD</span> • Обмеження: <span id="strictLabel" class="kpi">ON</span></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">Скопійовано</div>
+
+  <script>
+    // --- MASTER TEMPLATE (stable core) ---
+    const MASTER = (iconObject, extraRules, detailTail, platformTail) => `
+Ultra-clean premium 3D icon in a consistent brand style.
+
+Main object:
+${iconObject}, designed as a single bold symbol, minimalistic and iconic,
+with smooth rounded geometry and soft beveled edges.
+
+Style & Material:
+– glossy matte-black base material
+– deep dark graphite body with subtle soft-touch finish
+– hot neon pink rim light and accent glow
+– soft magenta reflections on edges
+– no scratches, no wear, no noise
+
+Lighting:
+– cinematic studio lighting
+– single strong pink key light from top-left
+– soft fill light, deep shadows
+– subtle glow, no bloom, no overexposure
+
+Shape & Geometry:
+– smooth rounded geometry
+– minimalistic, bold silhouette
+– slightly inflated form
+– no thin details, no sharp corners
+${detailTail}
+
+Camera & Composition:
+– centered object
+– front-facing with slight 3/4 tilt
+– medium close-up
+– perfectly symmetrical composition
+
+Background:
+– SOLID single-color dark gray background (#1A1A1A)
+– perfectly uniform, NO gradient, NO vignette, NO texture, NO pattern
+– no environment, no floor, no reflections
+
+Rendering:
+– ultra-high quality
+– photorealistic 3D render
+– studio product render
+– clean, modern, futuristic
+– Instagram-ready visual
+
+Consistency rule:
+This icon must look identical in style, lighting, material and color
+to other icons in the same series.
+Only the symbol itself is allowed to change.
+
+Restrictions:
+– no text
+– no extra symbols
+– no background objects
+– no different colors
+– no metallic silver or gold
+– do not change material or lighting style
+– background must be perfectly solid (#1A1A1A), no gradients, no vignette, no texture
+${extraRules}
+
+${platformTail}
+`.trim();
+    // Platform tails (optional)
+    const PLATFORM_TAILS = {
+      universal: "",
+      midjourney: "MidJourney hints:\n– clean studio render, minimal 3D icon\n– prefer consistent output across a series\n(If you use MJ, add your usual --ar / --v / --style params manually.)",
+      reve: "REVE hints:\n– hyper-realistic product render\n– strict style consistency across icons\n(Keep the prompt stable, change only the main object.)",
+      sdxl: "SDXL/Leonardo hints:\n– product render, high quality, minimal icon\n– consistency across a set; change only the object\n(If available: lock seed / use same model & sampler).",
+      nanobanana: "Nano Banana Pro hints:\n– maximize consistency across icons\n– keep solid background truly flat\n(If available: reuse same seed and model preset).",
+      seedream4k: "Seedream 4K hints:\n– premium 4K product render\n– keep style and lighting fixed across the set\n(If available: lock seed / reuse the same preset)."
+    };
+
+    // Detail tails
+    const DETAIL_TAILS = {
+      standard: "",
+      detailed: `
+Detail emphasis (more readable geometry, still clean):
+– add medium-level recessed/extruded grooves for the main symbol (no micro-noise)
+– visible panel lines / window bands / ribs where relevant (simple repeating pattern)
+– thicker bevels + smooth rounded radii on outer edges (no razor edges)
+– slightly deeper ambient occlusion inside recesses for clear separation
+– keep details consistent, evenly spaced, and iconic (avoid random tiny dots)
+`.trim()
+    };
+
+    function linesToArray(block){
+      return (block || "")
+        .split("\n")
+        .map(s => s.trim())
+        .filter(Boolean)
+        .map(s => s.replace(/^[-–]\s*/, "")); // remove leading dash/bullet
+    }
+
+    function buildJSONPrompt({ iconObject, strictRules, detailKey, detailTail, platformKey, platformTail, strictOne }){
+      const restrictionsBase = [
+        "no text",
+        "no extra symbols",
+        "no background objects",
+        "no different colors",
+        "no metallic silver or gold",
+        "do not change material or lighting style"
+      ];
+
+      const extraRestrictions = strictOne ? [
+        "one object only, no additional elements",
+        "avoid tiny details, keep it bold and readable",
+        "do not add decorative patterns"
+      ] : [];
+
+      const json = {
+        hiddenTitle: `3D icon — ${iconObject}`,
+        overallConcept: "Ultra-clean premium 3D icon in a consistent brand style. One stable style & lighting. Only the symbol changes.",
+        tags: [
+          "3D icon",
+          "premium",
+          "minimal",
+          "matte black",
+          "graphite",
+          "neon pink rim light",
+          "studio product render",
+          "instagram ready"
+        ],
+        platform: {
+          key: platformKey,
+          label:
+            platformKey === "universal" ? "Universal" :
+            platformKey === "midjourney" ? "MidJourney" :
+            platformKey === "reve" ? "REVE" :
+            platformKey === "sdxl" ? "SDXL/Leonardo" :
+            platformKey === "nanobanana" ? "Nano Banana Pro" : "Seedream 4K",
+          notes: platformTail ? platformTail : ""
+        },
+        mainSubject: {
+          object: iconObject,
+          designRules: [
+            "single bold symbol",
+            "minimalistic and iconic",
+            "smooth rounded geometry",
+            "soft beveled edges"
+          ]
+        },
+        detailLevel: detailKey,
+        detailRules: detailKey === "detailed" ? linesToArray(detailTail).filter(Boolean) : [],
+
+        styleAndMaterial: {
+          baseMaterial: "glossy matte-black base",
+          body: "deep dark graphite with subtle soft-touch finish",
+          accents: "hot neon pink rim light + accent glow",
+          reflections: "soft magenta reflections on edges",
+          surfaceRules: ["no scratches", "no wear", "no noise"]
+        },
+        lighting: {
+          setup: "cinematic studio lighting",
+          key: "single strong pink key light from top-left",
+          fill: "soft fill light",
+          shadows: "deep shadows",
+          bloom: "no bloom, no overexposure"
+        },
+        shapeAndGeometry: [
+          "smooth rounded geometry",
+          "minimalistic bold silhouette",
+          "slightly inflated form",
+          "no thin details",
+          "no sharp corners"
+        ],
+        cameraAndComposition: {
+          framing: "medium close-up",
+          angle: "front-facing with slight 3/4 tilt",
+          centering: "centered object",
+          symmetry: "perfectly symmetrical composition"
+        },
+        background: {
+          color: "solid dark gray #1A1A1A",
+          vignette: "none (solid background)",
+          environment: "no environment, no floor, no reflections",
+          rules: ["perfectly uniform", "no gradient", "no vignette", "no texture", "no pattern"]
+        },
+        rendering: [
+          "ultra-high quality",
+          "photorealistic 3D render",
+          "studio product render",
+          "clean modern futuristic",
+          "instagram-ready visual"
+        ],
+        consistencyRule: "Icon must look identical in style, lighting, material and color across the series. Only the symbol itself can change.",
+        strictOneObject: Boolean(strictOne),
+        restrictions: [...restrictionsBase, ...extraRestrictions, ...linesToArray(strictRules)]
+      };
+
+      return JSON.stringify(json, null, 2);
+    }
+
+
+    function normalizeInput(raw){
+      const txt = (raw || "").trim();
+
+      // Accept both English and Ukrainian markers
+      // Support multiple apostrophe characters: U+2019 (’), U+0027 ('), U+0060 (`), U+02BC (ʼ)
+      const objMatch = txt.match(/(?:ICON\\s*OBJECT|ОБ[’'`ʼ]?[ЄЕ]КТ\\s*ІКОНКИ)\\s*:\\s*(.+)/i);
+      let iconObject = objMatch ? objMatch[1].trim() : txt;
+
+      // If the label ended up inside the value (copy/paste variations), strip it defensively
+      iconObject = iconObject.replace(/^(?:ICON\s*OBJECT|ОБ[’'`ʼ]?[ЄЕ]КТ\s*ІКОНКИ)\s*:\s*/i, "");
+
+      const notesMatch = txt.match(/(?:Optional\\s*notes|Додаткові\\s*нотатки)\\s*:\\s*(.+)/i);
+      const notes = notesMatch ? notesMatch[1].trim() : "";
+
+      iconObject = iconObject.split("\\n")[0].trim();
+
+      if(!iconObject) iconObject = "a minimalist icon symbol";
+
+      if(notes){
+        iconObject += ` (notes: ${notes})`;
+      }
+      return iconObject;
+    }
+
+    function pluralizeSymbols(n){
+      // UA: 1 символ, 2-4 символи, 5+ символів, 11-14 символів
+      const mod10 = n % 10;
+      const mod100 = n % 100;
+      if(mod100 >= 11 && mod100 <= 14) return "символів";
+      if(mod10 === 1) return "символ";
+      if(mod10 >= 2 && mod10 <= 4) return "символи";
+      return "символів";
+    }
+
+    function build(){
+      const inputEl = document.getElementById("input");
+      const outEl = document.getElementById("output");
+      const platformEl = document.getElementById("platform");
+      const strictEl = document.getElementById("strictOne");
+      const formatEl = document.getElementById("format");
+
+      const iconObject = normalizeInput(inputEl.value);
+
+      const strictRules = strictEl.checked
+        ? "– one object only, no additional elements\n– avoid tiny details, keep it bold and readable\n– do not add decorative patterns"
+        : "";
+
+      const platformKey = platformEl.value;
+      const platformTail = PLATFORM_TAILS[platformKey] || "";
+
+      const detailEl = document.getElementById("detail");
+      const detailKey = detailEl ? detailEl.value : "standard";
+      const detailTail = DETAIL_TAILS[detailKey] || "";
+
+      const formatKey = (formatEl && formatEl.value) ? formatEl.value : "text";
+
+      if(formatKey === "json"){
+        outEl.value = buildJSONPrompt({
+          iconObject,
+          strictRules,
+          detailKey,
+          detailTail,
+          platformKey,
+          platformTail,
+          strictOne: strictEl.checked
+        });
+      }else{
+        outEl.value = MASTER(iconObject, strictRules, detailTail, platformTail);
+      }
+
+      // counts
+      const inLen = inputEl.value.length;
+      const outLen = outEl.value.length;
+
+      document.getElementById("inputCount").textContent = `${inLen} ${pluralizeSymbols(inLen)}`;
+      document.getElementById("outputCount").textContent = `${outLen} ${pluralizeSymbols(outLen)}`;
+
+      document.getElementById("modeLabel").textContent =
+        platformKey === "universal" ? "Універсальна" :
+        platformKey === "midjourney" ? "MidJourney" :
+        platformKey === "reve" ? "REVE" :
+        platformKey === "sdxl" ? "SDXL/Leonardo" :
+        platformKey === "nanobanana" ? "Nano Banana Pro" :
+        "Seedream 4K";
+
+      const formatLabelEl = document.getElementById("formatLabel");
+      if(formatLabelEl){
+        formatLabelEl.textContent = formatKey === "json" ? "JSON" : "Текст";
+      }
+
+      document.getElementById("strictLabel").textContent = strictEl.checked ? "ON" : "OFF";
+      const detailLabel = document.getElementById("detailLabel");
+      if(detailLabel){
+        detailLabel.textContent = (detailKey === "detailed") ? "DETAIL" : "STD";
+      }
+    }
+
+    async function copyPrompt(){
+      const outEl = document.getElementById("output");
+      try{
+        await navigator.clipboard.writeText(outEl.value);
+        showToast("Скопійовано в буфер");
+      }catch(e){
+        outEl.focus();
+        outEl.select();
+        document.execCommand("copy");
+        showToast("Скопійовано (fallback)");
+      }
+    }
+
+    function clearAll(){
+      document.getElementById("input").value = "";
+      build();
+      showToast("Очищено");
+    }
+
+    let toastTimer = null;
+    function showToast(text){
+      const t = document.getElementById("toast");
+      t.textContent = text;
+      t.classList.add("show");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(()=>t.classList.remove("show"), 1200);
+    }
+
+    document.getElementById("input").addEventListener("input", build);
+    document.getElementById("platform").addEventListener("change", build);
+    document.getElementById("detail").addEventListener("change", build);
+    document.getElementById("format").addEventListener("change", build);
+    document.getElementById("strictOne").addEventListener("change", build);
+    document.getElementById("copyBtn").addEventListener("click", copyPrompt);
+    document.getElementById("clearBtn").addEventListener("click", clearAll);
+
+    document.querySelectorAll(".chip").forEach(chip=>{
+      chip.addEventListener("click", ()=>{
+        document.getElementById("input").value = chip.getAttribute("data-val");
+        build();
+      });
+    });
+
+    build();
+  </script>
+</body>
+</html>
